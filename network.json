@@ -1,0 +1,571 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Networking Stack",
+    "Parameters": {
+        "Environment": {
+            "Description": "Indicate this is a Dev/QA/Staging/Prod environment",
+            "Type": "String",
+            "Default": "Dev",
+            "AllowedValues": [
+                "Dev",
+                "QA",
+                "Staging",
+                "Prod"
+            ],
+            "ConstraintDescription": "Environment value must be either Dev, QA, Staging or Prod"
+        },
+        "ServiceName": {
+            "Description": "Name of the service thats going to run in this VPC",
+            "Type": "String"
+        },
+        "DomainName": {
+            "Description": "Domain Name of this service e.g. yourdomain.in",
+            "Type": "String"
+        },
+        "YourIP":{
+            "Description": "Your IP address for initial access to the EC2 instance",
+            "Type": "String"
+        },
+        "VPCCIDR": {
+            "Description": "CIDR block for the VPC",
+            "Type": "String",
+            "Default": "172.31.56.0/21",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+        },
+        "ExtSubnetACIDR": {
+            "Description": "CIDR block for the public subnet in AZ A",
+            "Type": "String",
+            "Default": "172.31.56.0/24",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+        },
+        "IntSubnetACIDR": {
+            "Description": "CIDR block for the private subnet in AZ A",
+            "Type": "String",
+            "Default": "172.31.57.0/24",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+        },
+        "ExtSubnetBCIDR": {
+            "Description": "CIDR block for the public subnet in AZ B",
+            "Type": "String",
+            "Default": "172.31.58.0/24",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+        },
+        "IntSubnetBCIDR": {
+            "Description": "CIDR block for the private subnet in AZ B",
+            "Type": "String",
+            "Default": "172.31.59.0/24",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+        },
+        "ExtSubnetCCIDR": {
+            "Description": "CIDR block for the public subnet in AZ C",
+            "Type": "String",
+            "Default": "172.31.60.0/24",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+        },
+        "IntSubnetCCIDR": {
+            "Description": "CIDR block for the private subnet in AZ C",
+            "Type": "String",
+            "Default": "172.31.61.0/24",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+        },
+        "VPCFlowLogRetentionDays": {
+            "Description": "Number of days you want to retain VPC flow log events.",
+            "Type": "Number",
+            "Default": 30,
+            "AllowedValues": [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653]
+        }    
+    },
+    "Metadata": {
+        "AWS::CloudFormation::Interface" : {
+            "ParameterGroups" : [
+              {
+                "Label" : { "default" : "VPC Configuration" },
+                "Parameters" : [ "Environment", "ServiceName", "DomainName","YourIP", "VPCCIDR", "ExtSubnetACIDR", "IntSubnetACIDR", "ExtSubnetBCIDR", "IntSubnetBCIDR", "ExtSubnetCCIDR", "IntSubnetCCIDR", "VPCFlowLogRetentionDays" ]
+              }
+            ]
+        }
+    },
+    "Resources": {
+        "VPC": {
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "Tags": [
+                    { "Key": "Name", "Value":  { "Fn::Join": [ "", [ {"Ref": "ServiceName" }, "-VPC-", { "Ref": "Environment" } ]] } },
+                    { "Key": "Env", "Value": { "Ref": "Environment" } }
+                ],
+                "CidrBlock": {"Ref": "VPCCIDR"},
+                "EnableDnsSupport": "true",
+                "EnableDnsHostnames": "true"
+            }
+        },
+        "ExtSubnetA": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "MapPublicIpOnLaunch": "true",
+                "AvailabilityZone": {
+                    "Fn::Select": [ "0", { "Fn::GetAZs": { "Ref": "AWS::Region" } } ]
+                },
+                "VpcId": { "Ref": "VPC" },
+                "CidrBlock": {"Ref": "ExtSubnetACIDR"},
+                "Tags" : [ 
+                    { "Key": "Name", "Value": { "Fn::Join": [ "", [ {"Ref": "ServiceName" }, "-External-Subnet-A-", { "Ref": "Environment" } ]] } },
+                    { "Key": "Env", "Value": { "Ref": "Environment" } }
+                ]
+            }
+        },
+        "IntSubnetA": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "AvailabilityZone": {
+                    "Fn::Select": [ "0", { "Fn::GetAZs": { "Ref": "AWS::Region" } } ]
+                },
+                "VpcId": { "Ref": "VPC" },
+                "CidrBlock": {"Ref": "IntSubnetACIDR"},
+                "Tags" : [ 
+                    { "Key": "Name", "Value": { "Fn::Join": [ "", [ {"Ref": "ServiceName" }, "-Internal-Subnet-A-", { "Ref": "Environment" } ]] } },
+                    { "Key": "Env", "Value": { "Ref": "Environment" } }
+                ]
+            }
+        },                       
+        "ExtSubnetB": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "MapPublicIpOnLaunch": "true",
+                "AvailabilityZone": {
+                    "Fn::Select": [ "1",{ "Fn::GetAZs": { "Ref": "AWS::Region" } } ]
+                },
+                "VpcId": { "Ref": "VPC" },
+                "CidrBlock": {"Ref": "ExtSubnetBCIDR"},
+                "Tags" : [ 
+                    { "Key": "Name", "Value":  { "Fn::Join": [ "", [ {"Ref": "ServiceName" }, "-External-Subnet-B-", { "Ref": "Environment" } ]] } },
+                    { "Key": "Env", "Value": { "Ref": "Environment" } }
+                ]
+            }
+        },
+        "IntSubnetB": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "AvailabilityZone": {
+                    "Fn::Select": [ "1", { "Fn::GetAZs": { "Ref": "AWS::Region" } } ]
+                },
+                "VpcId": { "Ref": "VPC" },
+                "CidrBlock": {"Ref": "IntSubnetBCIDR"},
+                "Tags" : [ 
+                    { "Key": "Name", "Value": { "Fn::Join": [ "", [ {"Ref": "ServiceName" }, "-Internal-Subnet-B-", { "Ref": "Environment" } ]] } },
+                    { "Key": "Env", "Value": { "Ref": "Environment" } }
+                ]
+            }
+        },        
+        "ExtSubnetC": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "MapPublicIpOnLaunch": "true",
+                "AvailabilityZone": {
+                    "Fn::Select": [ "2", { "Fn::GetAZs": { "Ref": "AWS::Region" } } ]
+                },
+                "VpcId": { "Ref": "VPC" },
+                "CidrBlock": {"Ref": "ExtSubnetCCIDR"},
+                "Tags" : [ 
+                    { "Key": "Name", "Value": { "Fn::Join": [ "", [ {"Ref": "ServiceName" }, "-External-Subnet-C-", { "Ref": "Environment" } ]] } },
+                    { "Key": "Env", "Value": { "Ref": "Environment" } }
+                ]
+            }
+        },
+        "IntSubnetC": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "AvailabilityZone": {
+                    "Fn::Select": [ "2", { "Fn::GetAZs": { "Ref": "AWS::Region" } } ]
+                },
+                "VpcId": { "Ref": "VPC" },
+                "CidrBlock": {"Ref": "IntSubnetCCIDR"},
+                "Tags" : [ 
+                    { "Key": "Name", "Value": { "Fn::Join": [ "", [ {"Ref": "ServiceName" }, "-Internal-Subnet-C-", { "Ref": "Environment" } ]] } },
+                    { "Key": "Env", "Value": { "Ref": "Environment"} }
+                ]
+            }
+        },
+        "IGW":{
+            "Type" : "AWS::EC2::InternetGateway",
+            "Properties" : {
+                "Tags" : [ 
+                    { "Key": "Name", "Value": { "Fn::Join": [ "", [ {"Ref": "ServiceName" }, "-IGW-", { "Ref": "Environment" } ]] } },
+                    { "Key": "Env", "Value": { "Ref": "Environment" } }
+                ]
+            }              
+        },
+        "AttachIGW": {
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "Properties": {
+                "InternetGatewayId": { "Ref": "IGW" },
+                "VpcId": { "Ref":"VPC" }
+            }
+        },
+        "PublicRouteTable": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "Tags": [
+                    { "Key": "Name", "Value": { "Fn::Join": [ "", [ {"Ref": "ServiceName" }, "-RouteTable-Public-", { "Ref": "Environment" } ]] } },
+                    { "Key": "Env", "Value": { "Ref": "Environment" } }
+                ],
+                "VpcId": { "Ref": "VPC" }
+            }
+        },
+        "AssociatePublicRTExtA": {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+               "RouteTableId" : { "Ref": "PublicRouteTable" },
+               "SubnetId" : { "Ref": "ExtSubnetA" }
+            }
+        },
+        "AssociatePublicRTExtB": {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+               "RouteTableId" : { "Ref": "PublicRouteTable" },
+               "SubnetId" : { "Ref": "ExtSubnetB" }
+            }
+        },
+        "AssociatePublicRTExtC": {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+               "RouteTableId" : { "Ref": "PublicRouteTable" },
+               "SubnetId" : { "Ref": "ExtSubnetC" }
+            }
+        },
+        "PublicRTDefaultRoute": {
+            "Type": "AWS::EC2::Route",
+            "DependsOn": "AttachIGW",
+            "Properties": {
+                "RouteTableId": { "Ref": "PublicRouteTable" },
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "GatewayId": { "Ref": "IGW" }
+            }
+        },
+        "PrivateRouteTableA": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "Tags": [
+                    { "Key": "Name", "Value": { "Fn::Join": [ "", [ {"Ref": "ServiceName" }, "-RouteTable-Private-A-", { "Ref": "Environment" } ]] } },
+                    { "Key": "Env", "Value": { "Ref": "Environment" } }
+                ],
+                "VpcId": { "Ref": "VPC" }
+            }
+        },        
+        "AssociatePrivateRTIntA": {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+               "RouteTableId" : { "Ref": "PrivateRouteTableA" },
+               "SubnetId" : { "Ref": "IntSubnetA" }
+            }
+        },
+        "PrivateRouteTableB": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "Tags": [
+                    { "Key": "Name", "Value": { "Fn::Join": [ "", [ {"Ref": "ServiceName" }, "-RouteTable-Private-B-", { "Ref": "Environment" } ]] } },
+                    { "Key": "Env", "Value": { "Ref": "Environment" } }
+                ],
+                "VpcId": { "Ref": "VPC" }
+            }
+        },        
+        "AssociatePrivateRTIntB": {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+               "RouteTableId" : { "Ref": "PrivateRouteTableB" },
+               "SubnetId" : { "Ref": "IntSubnetB" }
+            }
+        },
+        "PrivateRouteTableC": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "Tags": [
+                    { "Key": "Name", "Value": { "Fn::Join": [ "", [ {"Ref": "ServiceName" }, "-RouteTable-Private-C-", { "Ref": "Environment" } ]] } },
+                    { "Key": "Env", "Value": { "Ref": "Environment" } }
+                ],
+                "VpcId": { "Ref": "VPC" }
+            }
+        },        
+        "AssociatePrivateRTIntC": {
+            "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties" : {
+               "RouteTableId" : { "Ref": "PrivateRouteTableA" },
+               "SubnetId" : { "Ref": "IntSubnetC" }
+            }
+        },
+        "VPCDHCPOptions": {
+            "Type": "AWS::EC2::DHCPOptions",
+            "Properties": {
+                "DomainName": { "Ref": "DomainName" },
+                "DomainNameServers": [ "AmazonProvidedDNS" ],
+                "Tags": [
+                    { "Key": "Name", "Value": { "Fn::Join": [ "", [ {"Ref": "ServiceName" }, "-DHCPOptios-", { "Ref": "Environment" } ]] } },
+                    { "Key": "Env", "Value": { "Ref": "Environment" } }
+                ]
+            }
+        },
+        "AssociateDHCPOptionsVPC": {
+            "Type": "AWS::EC2::VPCDHCPOptionsAssociation",
+            "Properties":{
+                "DhcpOptionsId": { "Ref": "VPCDHCPOptions" },
+                "VpcId": { "Ref": "VPC"}
+            }
+        },
+        "LinuxSG": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription" : "Security group for Linux server",
+                "VpcId" : {"Ref" : "VPC"},
+                "SecurityGroupIngress" : [
+                    {"IpProtocol" : "tcp", "FromPort" : "22", "ToPort" : "22", "CidrIp" : {"Ref": "YourIP"}},
+                    {"IpProtocol" : "icmp", "FromPort" : "8", "ToPort" : "-1", "CidrIp" : "0.0.0.0/0"}
+                ],
+                "SecurityGroupEgress" : [
+                    {"IpProtocol" : "-1", "FromPort" : "0", "ToPort" : "65535", "CidrIp" : "0.0.0.0/0"}
+                ],
+                "Tags": [
+                    { "Key": "Name", "Value": { "Fn::Join": [ "", [ {"Ref": "ServiceName" }, " Linux Server Security Group ", { "Ref": "Environment" } ]] } },
+                    { "Key": "Env", "Value": { "Ref": "Environment" } }
+                ]
+            }
+        },
+        "LinuxSGSelfRef": {
+            "DependsOn": "LinuxSG",            
+            "Type": "AWS::EC2::SecurityGroupIngress",
+            "Properties" : {
+                "GroupId": { "Ref": "LinuxSG" },
+                "IpProtocol": "tcp",
+                "FromPort": "22",
+                "ToPort": "22",                
+                "SourceSecurityGroupId": { "Ref": "LinuxSG" }
+            }
+        },
+        "SFTPSG": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription" : "Security group for SFTP server",
+                "VpcId" : {"Ref" : "VPC"},
+                "SecurityGroupIngress" : [
+                    {"IpProtocol" : "tcp", "FromPort" : "22", "ToPort" : "22", "CidrIp" : "0.0.0.0/0"}
+                ],
+                "Tags": [
+                    { "Key": "Name", "Value": { "Fn::Join": [ "", [ "SFTP Server Security Group ", { "Ref": "Environment" } ]] } },
+                    { "Key": "Env", "Value": { "Ref": "Environment" } }
+                ]
+            }
+        },
+        "WebSG": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription" : "Security group for Web server",
+                "VpcId" : {"Ref" : "VPC"},
+                "SecurityGroupIngress" : [
+                    {"IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "0.0.0.0/0"},
+                    {"IpProtocol" : "tcp", "FromPort" : "443", "ToPort" : "443", "CidrIp" : "0.0.0.0/0"}
+                ],
+                "Tags": [
+                    { "Key": "Name", "Value": { "Fn::Join": [ "", [ {"Ref": "ServiceName" }, " Web Server Security Group ", { "Ref": "Environment" } ]] } },
+                    { "Key": "Env", "Value": { "Ref": "Environment" } }
+                ]
+            }
+        },
+        "MainDBSG": {
+            "DependsOn": [ "WebSG" ],
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription" : "Security group for MainDB RDS server",
+                "VpcId" : {"Ref" : "VPC"},
+                "SecurityGroupIngress" : [
+                    {"IpProtocol": "tcp", "FromPort": "3306", "ToPort": "3306", "CidrIp": {"Ref": "YourIP"}},
+                    {"IpProtocol": "tcp", "FromPort": "3306", "ToPort": "3306", "SourceSecurityGroupId": {"Ref": "WebSG"}}
+                ],
+                "Tags": [
+                    { "Key": "Name", "Value": { "Fn::Join": [ "", [ {"Ref": "ServiceName" }, " Main Database RDS Server Security Group", { "Ref": "Environment" } ]] } },
+                    { "Key": "Env", "Value": { "Ref": "Environment" } }
+                ]
+            }
+        },
+        "S3VPCE": {
+            "DependsOn": [ "PublicRouteTable", "PrivateRouteTableA", "PrivateRouteTableB", "PrivateRouteTableC" ],
+            "Type" : "AWS::EC2::VPCEndpoint",
+            "Properties" : {
+              "PolicyDocument" : {
+                "Version":"2012-10-17",
+                "Statement":[{
+                  "Effect":"Allow",
+                  "Principal": "*",
+                  "Action":["s3:*"],
+                  "Resource":["*"]
+                }]
+              },
+              "RouteTableIds": [
+                  {"Ref": "PrivateRouteTableA"},
+                  {"Ref": "PrivateRouteTableB"},
+                  {"Ref": "PrivateRouteTableC"},
+                  {"Ref": "PublicRouteTable"}
+              ],
+              "ServiceName" : { "Fn::Join": [ "", [ "com.amazonaws.", { "Ref": "AWS::Region" }, ".s3" ] ] },
+              "VpcId" : {"Ref" : "VPC"}
+            }
+        },
+        "VPCFlowLogCWLRole":{
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+               "AssumeRolePolicyDocument": {
+                  "Version" : "2012-10-17",
+                  "Statement": [ {
+                     "Effect": "Allow",
+                     "Principal": {
+                        "Service": [ "vpc-flow-logs.amazonaws.com" ]
+                     },
+                     "Action": [ "sts:AssumeRole" ]
+                  } ]
+               },               
+               "Policies": [ {
+                  "PolicyName": "VPCFlowLogs-policy",
+                  "PolicyDocument": {
+                     "Version" : "2012-10-17",
+                     "Statement": [ {
+                        "Effect": "Allow",
+                        "Action": [
+                            "logs:CreateLogGroup",
+                            "logs:CreateLogStream",
+                            "logs:PutLogEvents",
+                            "logs:DescribeLogGroups",
+                            "logs:DescribeLogStreams"
+                        ],
+                        "Resource": "*"
+                     } ]
+                  }
+                } ]
+            }
+        },
+        "VPCFlowLogCWLLogGroup":{
+            "Type": "AWS::Logs::LogGroup",
+            "Properties": {                                
+                "RetentionInDays":{"Ref": "VPCFlowLogRetentionDays"}
+            }
+        },
+        "VPCFlowLog": {
+            "DependsOn": [ "VPCFlowLogCWLRole", "VPCFlowLogCWLLogGroup" ],
+            "Type" : "AWS::EC2::FlowLog",
+            "Properties" : {
+              "DeliverLogsPermissionArn" : { "Fn::GetAtt" : ["VPCFlowLogCWLRole", "Arn"] },
+              "LogGroupName" : {"Ref": "VPCFlowLogCWLLogGroup"},
+              "ResourceId" : { "Ref" : "VPC" },
+              "ResourceType" : "VPC",
+              "TrafficType" : "ALL"
+            }
+        }
+    },
+    "Outputs": {
+        "StackName": {
+            "Description": "The name of the stack",
+            "Value": {"Ref": "AWS::StackName" },
+            "Export": {
+                "Name": {"Ref": "AWS::StackName" }
+            }
+        },
+        "StackId": {
+            "Description": "The ID of the stack",
+            "Value": {"Ref": "AWS::StackId" }            
+        },
+        "StackVPC":{
+            "Description": "The ID of the VPC",
+            "Value" : { "Ref" : "VPC" },
+            "Export" : {
+              "Name" : {"Fn::Sub": "${AWS::StackName}-VPCID" }
+            }
+        },
+        "StackExtSubnetA": {
+            "Description" : "The ID of the public subnet in zone A",
+            "Value" : {"Ref": "ExtSubnetA"},
+            "Export" : {
+                "Name" : {"Fn::Sub": "${AWS::StackName}-ExtSubnetAID" }
+            }
+        },
+        "StackIntSubnetA": {
+            "Description" : "The ID of the private subnet in zone A",
+            "Value" : {"Ref": "IntSubnetA"},
+            "Export" : {
+                "Name" : {"Fn::Sub": "${AWS::StackName}-IntSubnetAID" }
+            }
+        },        
+        "StackExtSubnetB": {
+            "Description" : "The ID of the public subnet in zone B",
+            "Value" : {"Ref": "ExtSubnetB"},
+            "Export" : {
+                "Name" : {"Fn::Sub": "${AWS::StackName}-ExtSubnetBID" }
+            }
+        },        
+        "StackIntSubnetB": {
+            "Description" : "The ID of the private subnet in zone B",
+            "Value" : {"Ref": "IntSubnetB"},
+            "Export" : {
+                "Name" : {"Fn::Sub": "${AWS::StackName}-IntSubnetBID" }
+            }
+        },          
+        "StackExtSubnetC": {
+            "Description" : "The ID of the public subnet in zone C",
+            "Value" : {"Ref": "ExtSubnetC"},
+            "Export" : {
+                "Name" : {"Fn::Sub": "${AWS::StackName}-ExtSubnetCID" }
+            }
+        },
+        "StackIntSubnetC": {
+            "Description" : "The ID of the private subnet in zone C",
+            "Value" : {"Ref": "IntSubnetC"},
+            "Export" : {
+                "Name" : {"Fn::Sub": "${AWS::StackName}-IntSubnetCID" }
+            }
+        },
+        "StackLinuxSG": {
+            "Description" : "The ID of the Linux server security group",
+            "Value" : {"Ref": "LinuxSG"},
+            "Export" : {
+                "Name" : {"Fn::Sub": "${AWS::StackName}-LinuxSGID" }
+            }
+        },
+        "StackMainDBSG": {
+            "Description" : "The ID of the Main Database server security group",
+            "Value" : {"Ref": "MainDBSG"},
+            "Export" : {
+                "Name" : {"Fn::Sub": "${AWS::StackName}-MainDBSGID" }
+            }
+        },
+        "StackSFTPSG": {
+            "Description" : "The ID of the SFTP server security group",
+            "Value" : {"Ref": "SFTPSG"},
+            "Export" : {
+                "Name" : {"Fn::Sub": "${AWS::StackName}-SFTPSGID" }
+            }
+        },
+        "StackWebSG": {
+            "Description" : "The ID of the public Web server security group",
+            "Value" : {"Ref": "WebSG"},
+            "Export" : {
+                "Name" : {"Fn::Sub": "${AWS::StackName}-WebSGID" }
+            }
+        }
+    }
+}
