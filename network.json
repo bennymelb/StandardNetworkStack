@@ -337,6 +337,7 @@
                 "GroupDescription" : "Security group for Linux server",
                 "VpcId" : {"Ref" : "VPC"},
                 "SecurityGroupIngress" : [
+                    {"IpProtocol" : "tcp", "FromPort" : "22", "ToPort" : "22", "CidrIp" : { "Fn::Join": [ "/", [ {"Ref": "YourIP" }, "32" ]] }},
                     {"IpProtocol" : "icmp", "FromPort" : "8", "ToPort" : "-1", "CidrIp" : "0.0.0.0/0"}
                 ],
                 "SecurityGroupEgress" : [
@@ -395,6 +396,7 @@
                 "GroupDescription" : "Security group for MainDB RDS server",
                 "VpcId" : {"Ref" : "VPC"},
                 "SecurityGroupIngress" : [
+                    {"IpProtocol": "tcp", "FromPort": "3306", "ToPort": "3306", "CidrIp": { "Fn::Join": [ "/", [ {"Ref": "YourIP" }, "32" ]] }},
                     {"IpProtocol": "tcp", "FromPort": "3306", "ToPort": "3306", "SourceSecurityGroupId": {"Ref": "WebSG"}}
                 ],
                 "Tags": [
